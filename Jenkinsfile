@@ -13,8 +13,12 @@ pipeline {
             when { branch 'dev' }
             steps {
                 echo "DEV ENVIRONMENT TRIGGERED"
-                sh 'pip install -r requirements.txt'
-                sh 'python src/train.py'
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install -r requirements.txt
+                    python3 src/train.py
+                '''
             }
         }
         stage('DEV: Model Deploy & Test') {
