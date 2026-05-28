@@ -6,39 +6,76 @@ pipeline {
     }
 
     stages {
-        stage('Data Ingest & Model Train') {
+        // ==========================================
+        //         DEV PIPELINE (Trigger: dev branch)
+        // ==========================================
+        stage('DEV: Data Ingest & Model Train') {
+            when { branch 'dev' }
             steps {
-                echo "Phase 1: Starting Data Ingestion and Model Training..."
+                echo "DEV ENVIRONMENT TRIGGERED"
                 sh 'pip install -r requirements.txt'
                 sh 'python src/train.py'
             }
         }
-        
-        stage('Model Deploy (mlflow)') {
+        stage('DEV: Model Deploy & Test') {
+            when { branch 'dev' }
             steps {
-                echo "Phase 2: Deploying Model to MLflow..."
-                // Placeholder for deployment logic
-                sh 'echo "Model successfully deployed to local MLflow instance."'
+                echo "Deploying to MLflow and Testing..."
+            }
+            post {
+                success {
+                    echo "SUCCESS: Saving model in registry (mlflow) - assign alias 'Challenger'"
+                }
+                failure {
+                    echo "FAILED: Notifying through Email"
+                }
             }
         }
-        
-        stage('Model Test') {
+
+        // ==========================================
+        //  PRE-PROD PIPELINE (Trigger: main branch)
+        // ==========================================
+        stage('PRE-PROD: Load & Register') {
+            when { branch 'main' }
             steps {
-                echo "Phase 3: Testing the Deployed Model..."
-                // Placeholder for testing logic
-                sh 'echo "All model endpoint tests passed successfully."'
+                echo "PRE-PROD ENVIRONMENT TRIGGERED"
+                echo "Loading the model (Challenger alias)"
+                echo "Logging and Registering the model - assign alias 'Challenger-pre-test'"
             }
         }
-    }
-    
-    post {
-        success {
-            echo "Pipeline Success!"
-            echo "Action: Saving model in registry (mlflow) and assigning alias 'Challenger'"
+        stage('PRE-PROD: Deploy & Test') {
+            when { branch 'main' }
+            steps {
+                echo "Model Deploy (mlflow)"
+                echo "Model Test"
+            }
+            post {
+                success {
+                    echo "SUCCESS: Update alias of model - 'Challenger-post-test'"
+                }
+                failure {
+                    echo "FAILED: Notifying through Email"
+                }
+            }
         }
-        failure {
-            echo "Pipeline Failed!"
-            echo "Action: Notifying through Email..."
+
+        // ==========================================
+        //    PROD PIPELINE (Trigger: Release Tag)
+        // ==========================================
+        stage('PROD: Load & Register') {
+            when { buildingTag() }
+            steps {
+                echo "PROD ENVIRONMENT TRIGGERED"
+                echo "Load the model (Challenger-post-test alias)"
+                echo "Log and Register the model - assign alias 'Champion'"
+            }
+        }
+        stage('PROD: Deploy') {
+            when { buildingTag() }
+            steps {
+                echo "Model Deploy (mlflow)"
+                echo "Production Deployment Complete!"
+            }
         }
     }
 }
